@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_auto_reconcile_wizard_inherit_partial" model="ir.ui.view">
+        <field name="name">account.auto.reconcile.wizard.form.inherit.partial</field>
+        <field name="model">account.auto.reconcile.wizard</field>
+        <field name="inherit_id" ref="account_accountant.view_account_auto_reconcile_wizard"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[field[@name='search_mode']]" position="after">
+                <group>
+                    <field name="use_partial_reconcile"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
