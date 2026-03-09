@@ -1,0 +1,140 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* account_auto_partial_reconcile
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 17.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-05 00:00+0000\n"
+"PO-Revision-Date: 2026-03-05 00:00+0000\n"
+"Last-Translator: Imad chaikhi\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: account_auto_partial_reconcile
+msgid "Rapprochement auto (partiel)"
+msgstr "Auto-reconcile (Partial)"
+
+#. module: account_auto_partial_reconcile
+msgid "Pieces comptables source"
+msgstr "Source Journal Items"
+
+#. module: account_auto_partial_reconcile
+msgid "Pieces de paiement disponibles"
+msgstr "Available Payment Journal Items"
+
+#. module: account_auto_partial_reconcile
+msgid "Piece de paiement"
+msgstr "Payment Journal Item"
+
+#. module: account_auto_partial_reconcile
+msgid "Pieces de contrepartie disponibles"
+msgstr "Available Counterpart Journal Items"
+
+#. module: account_auto_partial_reconcile
+msgid "Residuel du paiement"
+msgstr "Payment Residual"
+
+#. module: account_auto_partial_reconcile
+msgid "Lignes d'allocation"
+msgstr "Allocation Lines"
+
+#. module: account_auto_partial_reconcile
+msgid "Total alloue"
+msgstr "Total Allocated"
+
+#. module: account_auto_partial_reconcile
+msgid "Montant restant"
+msgstr "Remaining Amount"
+
+#. module: account_auto_partial_reconcile
+msgid "Piece comptable"
+msgstr "Journal Item"
+
+#. module: account_auto_partial_reconcile
+msgid "Montant"
+msgstr "Amount"
+
+#. module: account_auto_partial_reconcile
+msgid "Montant ouvert"
+msgstr "Open Amount"
+
+#. module: account_auto_partial_reconcile
+msgid "Pieces comptables liees"
+msgstr "Related Journal Items"
+
+#. module: account_auto_partial_reconcile
+msgid "Ecriture comptable"
+msgstr "Journal Entry"
+
+#. module: account_auto_partial_reconcile
+msgid "Residuel"
+msgstr "Residual"
+
+#. module: account_auto_partial_reconcile
+msgid "Rapprocher"
+msgstr "Reconcile"
+
+#. module: account_auto_partial_reconcile
+msgid "Annuler"
+msgstr "Cancel"
+
+#. module: account_auto_partial_reconcile
+msgid "Aucun rapprochement partiel n'a pu etre genere pour cette selection."
+msgstr "No partial reconciliation could be generated for this selection."
+
+#. module: account_auto_partial_reconcile
+msgid "Veuillez d'abord choisir une piece de paiement."
+msgstr "Please choose a payment journal item first."
+
+#. module: account_auto_partial_reconcile
+msgid "Veuillez ajouter au moins une ligne d'allocation avec un montant positif."
+msgstr "Please add at least one allocation line with a positive amount."
+
+#. module: account_auto_partial_reconcile
+msgid "Le montant total alloue (%(allocated)s) depasse le residuel du paiement (%(residual)s)."
+msgstr "The total allocated amount (%(allocated)s) exceeds the payment residual (%(residual)s)."
+
+#. module: account_auto_partial_reconcile
+msgid "Toutes les pieces allouees doivent appartenir a la meme societe que le paiement."
+msgstr "All allocated journal items must belong to the same company as the payment."
+
+#. module: account_auto_partial_reconcile
+msgid "Toutes les pieces allouees doivent utiliser le meme compte que le paiement."
+msgstr "All allocated journal items must use the same account as the payment."
+
+#. module: account_auto_partial_reconcile
+msgid "La piece %(line)s doit avoir le signe oppose a celui du paiement."
+msgstr "The journal item %(line)s must have the opposite sign of the payment."
+
+#. module: account_auto_partial_reconcile
+msgid "Le montant alloue %(amount)s est superieur au montant rapprochable %(max)s pour la ligne %(line)s."
+msgstr "Allocated amount %(amount)s is greater than the current reconciliable amount %(max)s for line %(line)s."
+
+#. module: account_auto_partial_reconcile
+msgid "Pieces comptables a rapprocher"
+msgstr "Journal Items to reconcile"
+
+#. module: account_auto_partial_reconcile
+msgid "Le montant alloue doit etre strictement positif."
+msgstr "Allocated amount must be strictly positive."
+
+#. module: account_auto_partial_reconcile
+msgid "Le montant alloue %(amount)s ne peut pas depasser le montant ouvert %(max)s."
+msgstr "Allocated amount %(amount)s cannot exceed open amount %(max)s."
+
+#. module: account_auto_partial_reconcile
+msgid "Assistant de rapprochement partiel"
+msgstr "Auto Partial Reconcile Wizard"
+
+#. module: account_auto_partial_reconcile
+msgid "Ligne d'assistant de rapprochement partiel"
+msgstr "Auto Partial Reconcile Wizard Line"
+
+#. module: account_auto_partial_reconcile
+msgid "Chaque piece comptable ne peut etre allouee qu'une seule fois."
+msgstr "Each journal item can only be allocated once."
