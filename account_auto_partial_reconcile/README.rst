@@ -1,109 +1,205 @@
-Goal
-This wizard replaces standard auto-reconcile with a manual allocation workflow:
+Rapprochement Partiel Automatique
+================================
 
-pick one payment journal item,
-add multiple target journal items (invoices/entries),
-enter amount per target,
-reconcile those amounts, leaving any remainder open.
-File: account_auto_partial_reconcile_wizard.py
+Vue d'ensemble
+--------------
 
-1) Main wizard model
-AccountAutoPartialReconcileWizard is a TransientModel (temporary records used in popups).
+Ce module etend le flux de rapprochement automatique d'Odoo en ajoutant un
+assistant de rapprochement partiel avec allocation manuelle.
 
-Key fields:
+Au lieu de laisser Odoo rapprocher automatiquement toutes les ecritures
+correspondantes, l'utilisateur peut :
 
-company_id, company_currency_id: company context + currency.
-source_line_ids: lines passed from current list/domain (when launched from Reconcile list).
-available_payment_line_ids: computed candidates for payment line selection.
-payment_line_id: the line you want to allocate from (your payment/open credit/debit).
-available_counterpart_line_ids: computed candidates to allocate to.
-partner_id, account_id: shown from selected payment line.
-allocation_line_ids: the one2many rows where you choose item + amount.
-payment_residual: open residual of payment line.
-total_allocated_amount: sum of entered allocation amounts.
-remaining_amount: payment_residual - total_allocated_amount.
-2) Default loading
-default_get:
+* selectionner une ecriture de paiement ou une ecriture client/fournisseur
+  ouverte,
+* choisir plusieurs ecritures de contrepartie,
+* definir le montant a affecter a chaque ecriture,
+* valider le rapprochement tout en laissant le solde restant ouvert.
 
-reads context domain (self.env.context.get('domain')),
-loads matching journal items into source_line_ids,
-if only 1 line is found, auto-sets payment_line_id.
-So popup can start prefilled depending on where you open it.
+Ce module est utile lorsqu'un paiement doit etre reparti manuellement sur
+plusieurs factures, avoirs ou ecritures comptables ouvertes.
 
-3) Amount computation
-_compute_amounts:
+Cas d'usage principal
+---------------------
 
-updates payment_residual,
-sums allocation amounts,
-computes remaining balance live in the popup.
-4) Candidate payment lines
-_compute_available_payment_line_ids:
+Utilisez ce module lorsque le rapprochement automatique standard est trop
+rigide et que vous devez controler precisement le montant rapproche pour chaque
+ecriture ouverte.
 
-if source_line_ids exists, limits to those.
-otherwise searches all open reconcilable posted lines in company.
-5) Candidate counterpart lines
-_compute_available_counterpart_line_ids:
+Exemples typiques :
 
-needs payment_line_id.
-uses _get_counterpart_domain(payment_line):
-same company,
-posted, unreconciled,
-same account,
-opposite sign (balance < 0 or > 0 depending on payment line),
-optionally same partner.
-if source_line_ids exists, intersects with them.
-6) Payment change behavior
-_onchange_payment_line_id:
+* un paiement client doit etre reparti sur plusieurs factures,
+* un paiement fournisseur ne couvre qu'une partie d'une ou plusieurs factures,
+* un paiement doit etre rapproche manuellement sans solder completement les
+  ecritures ouvertes.
 
-clears existing allocation rows when payment line changes.
-7) Reconciliation helpers
-_compute_currency_amount_for_line:
+Fonctionnement
+--------------
 
-converts company amount into line currency proportionally using current residuals.
-needed for proper multi-currency partial reconcile values.
-_create_one_partial(payment_line, counterpart_line, amount_company):
+Le module ajoute une nouvelle option nommee ``Rapprochement partiel`` sur
+l'assistant standard ``account.auto.reconcile.wizard``.
 
-validates line exigibility,
-determines debit/credit side,
-prepares partial reconcile values via Odoo core _prepare_reconciliation_partials,
-creates account.partial.reconcile,
-creates exchange difference move if needed,
-creates cash-basis moves if applicable.
-_create_full_reconcile_for_completed_groups:
+Lorsque cette option est activee et que l'utilisateur lance le rapprochement,
+Odoo ouvre une fenetre dediee permettant de :
 
-after partials, checks matched groups (matching_number),
-if a group is now fully settled and not yet full-reconciled, creates account.full.reconcile.
-8) Main button action
-action_partial_reconcile (called by Reconcile button):
+* choisir l'ecriture de paiement a repartir,
+* visualiser le residuel du paiement,
+* ajouter des lignes d'allocation avec une ecriture cible et un montant,
+* suivre en temps reel le total alloue et le montant restant,
+* confirmer le rapprochement.
 
-ensures payment line exists.
-ensures allocation rows exist with positive amounts.
-checks total allocation does not exceed payment residual.
-loops each allocation row:
-validates same company/account and opposite sign,
-validates amount <= current possible amount,
-performs one partial reconcile.
-then tries to finalize full reconciles where possible.
-returns action opening related journal items.
-9) Allocation line model
-AccountAutoPartialReconcileWizardLine:
+L'assistant ne propose que des ecritures de contrepartie valides selon
+l'ecriture de paiement selectionnee :
 
-each row = one counterpart + one amount.
-fields:
-wizard_id: parent wizard.
-counterpart_line_id: selected target journal item.
-amount: amount for that item.
-max_amount: current open residual of target.
-_sql_constraints: same counterpart cannot be added twice in same wizard.
-_onchange_counterpart_line_id: prefill amount with full open residual.
-_check_amount: amount must be > 0 and <= open amount.
-How to use in UI
+* meme societe,
+* meme compte,
+* ecritures comptables comptabilisees et non rapprochees,
+* signe oppose,
+* meme partenaire lorsque l'ecriture de paiement contient un partenaire.
 
-Open Accounting -> Actions -> Reconcile.
-Click Auto-reconcile (your module redirects to this popup).
-Select Payment Journal Item.
-In Allocation Lines, add rows:
-choose Journal Item,
-enter Amount.
-Click Reconcile.
-Remaining payment stays open for later reconciliation.
+Workflow utilisateur
+--------------------
+
+1. Ouvrir l'assistant standard de rapprochement dans la comptabilite.
+2. Activer ``Rapprochement partiel``.
+3. Cliquer sur le bouton qui lance le rapprochement.
+4. Dans l'assistant de rapprochement partiel, selectionner l'ecriture de
+   paiement.
+5. Ajouter une ou plusieurs lignes d'allocation.
+6. Pour chaque ligne, choisir l'ecriture comptable a rapprocher et saisir le
+   montant.
+7. Cliquer sur ``Rapprocher``.
+
+Apres validation :
+
+* les rapprochements partiels sont crees pour les montants saisis,
+* un rapprochement complet est cree automatiquement lorsqu'un groupe rapproche
+  devient totalement solde,
+* tout residuel non alloue reste ouvert pour un rapprochement ulterieur.
+
+Regles de validation
+--------------------
+
+L'assistant empeche les allocations incoherentes. En particulier :
+
+* au moins une ligne d'allocation est obligatoire,
+* les montants alloues doivent etre strictement positifs,
+* le total alloue ne peut pas depasser le residuel du paiement,
+* une meme ecriture de contrepartie ne peut etre ajoutee qu'une seule fois,
+* le montant d'allocation ne peut pas depasser le montant encore ouvert de la
+  ligne cible,
+* l'ecriture de paiement et les ecritures de contrepartie doivent appartenir a
+  la meme societe, au meme compte et avoir des signes opposes.
+
+Notes techniques
+----------------
+
+* Modele etendu : ``account.auto.reconcile.wizard``
+* Nouvel assistant : ``account.auto.partial.reconcile.wizard``
+* Nouveau modele de ligne : ``account.auto.partial.reconcile.wizard.line``
+* Dependance : ``account_accountant``
+
+La logique de rapprochement prend egalement en charge les mecanismes standard
+d'Odoo pour les ecarts de change et la comptabilite de caisse lorsque cela
+s'applique.
+
+Rapprochement Partiel Automatique
+================================
+
+Overview
+--------
+
+This module extends Odoo's automatic reconciliation workflow by adding a
+manual partial reconciliation assistant.
+
+Instead of letting Odoo reconcile all matching journal items automatically,
+the user can:
+
+* select one payment or open receivable/payable journal item,
+* choose several counterpart journal items,
+* define the amount to allocate to each item,
+* validate the reconciliation while keeping any remaining balance open.
+
+This is useful when one payment must be distributed manually across multiple
+invoices, credit notes, or open accounting entries.
+
+Main use case
+-------------
+
+Use this module when the standard auto-reconcile process is too rigid and you
+need to control exactly how much of a payment is matched against each open
+entry.
+
+Typical examples:
+
+* one customer payment must be split across several invoices,
+* one supplier payment only covers part of one or more bills,
+* a payment must be matched manually because the open amounts should not be
+  reconciled in full.
+
+How it works
+------------
+
+The module adds a new option named ``Rapprochement partiel`` on the standard
+``account.auto.reconcile.wizard``.
+
+When this option is enabled and the user launches auto reconciliation, Odoo
+opens a dedicated popup where the user can:
+
+* choose the payment journal item to allocate,
+* see the payment residual amount,
+* add allocation lines with a target journal item and an amount,
+* track the total allocated amount and the remaining amount in real time,
+* confirm the reconciliation.
+
+The assistant only proposes valid counterpart lines based on the selected
+payment line:
+
+* same company,
+* same account,
+* posted and unreconciled journal items,
+* opposite sign,
+* same partner when the payment line has a partner.
+
+User workflow
+-------------
+
+1. Open the standard reconciliation assistant in Accounting.
+2. Enable ``Rapprochement partiel``.
+3. Click the button that launches reconciliation.
+4. In the partial reconciliation wizard, select the payment journal item.
+5. Add one or more allocation lines.
+6. For each line, choose the journal item to reconcile and enter the amount.
+7. Click ``Rapprocher``.
+
+After validation:
+
+* partial reconciliations are created for the entered amounts,
+* full reconciliation is created automatically when a matched group becomes
+  fully settled,
+* any unallocated residual amount remains open for later reconciliation.
+
+Validation rules
+----------------
+
+The wizard prevents inconsistent allocations. In particular:
+
+* at least one allocation line is required,
+* allocated amounts must be strictly positive,
+* the total allocated amount cannot exceed the payment residual,
+* each counterpart journal item can only be added once,
+* each allocation amount cannot exceed the currently open amount of the target
+  line,
+* payment and counterpart lines must belong to the same company and account and
+  must carry opposite signs.
+
+Technical notes
+---------------
+
+* Model extended: ``account.auto.reconcile.wizard``
+* New wizard: ``account.auto.partial.reconcile.wizard``
+* New wizard line model: ``account.auto.partial.reconcile.wizard.line``
+* Dependency: ``account_accountant``
+
+The reconciliation logic also supports Odoo's standard exchange difference and
+cash basis reconciliation mechanisms when applicable.
