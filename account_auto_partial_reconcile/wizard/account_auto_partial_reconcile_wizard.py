@@ -22,27 +22,25 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
     )
     source_line_ids = fields.Many2many(
         comodel_name='account.move.line',
-        string='Pièces comptables source',
+        string='Pieces comptables source',
         readonly=True,
     )
     available_payment_line_ids = fields.Many2many(
         comodel_name='account.move.line',
         compute='_compute_available_payment_line_ids',
-        string='Pièces de paiement disponibles',
+        string='Pieces de paiement disponibles',
     )
-
     payment_line_id = fields.Many2one(
         comodel_name='account.move.line',
-        string='Pièce de paiement',
+        string='Piece de paiement',
         required=True,
         domain="[('id', 'in', available_payment_line_ids)]",
     )
     available_counterpart_line_ids = fields.Many2many(
         comodel_name='account.move.line',
         compute='_compute_available_counterpart_line_ids',
-        string='Pièces de contrepartie disponibles',
+        string='Pieces de contrepartie disponibles',
     )
-
     partner_id = fields.Many2one(
         comodel_name='res.partner',
         related='payment_line_id.partner_id',
@@ -53,19 +51,18 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         related='payment_line_id.account_id',
         readonly=True,
     )
-
     payment_residual = fields.Monetary(
-        string='Résiduel du paiement',
+        string='Residuel du paiement',
         currency_field='company_currency_id',
         compute='_compute_amounts',
     )
     allocation_line_ids = fields.One2many(
         comodel_name='account.auto.partial.reconcile.wizard.line',
         inverse_name='wizard_id',
-        string='Lignes d’allocation',
+        string='Lignes d allocation',
     )
     total_allocated_amount = fields.Monetary(
-        string='Total alloué',
+        string='Total alloue',
         currency_field='company_currency_id',
         compute='_compute_amounts',
     )
@@ -98,15 +95,16 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
 
     @api.depends('source_line_ids', 'company_id')
     def _compute_available_payment_line_ids(self):
+        aml_model = self.env['account.move.line']
         for wizard in self:
             if wizard.source_line_ids:
                 wizard.available_payment_line_ids = wizard.source_line_ids.filtered(wizard._is_reconcilable_line)
                 continue
 
-            wizard.available_payment_line_ids = self.env['account.move.line'].search([
+            wizard.available_payment_line_ids = aml_model.search([
                 ('company_id', '=', wizard.company_id.id),
                 ('parent_state', '=', 'posted'),
-                ('display_type', 'not in', ('line_section', 'line_note')),
+                ('display_type', 'not in', ('line_section', 'line_subsection', 'line_note')),
                 ('reconciled', '=', False),
                 ('account_id.reconcile', '=', True),
                 ('amount_residual', '!=', 0.0),
@@ -114,15 +112,16 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
 
     @api.depends('payment_line_id', 'source_line_ids')
     def _compute_available_counterpart_line_ids(self):
+        aml_model = self.env['account.move.line']
         for wizard in self:
             if not wizard.payment_line_id:
-                wizard.available_counterpart_line_ids = self.env['account.move.line']
+                wizard.available_counterpart_line_ids = aml_model
                 continue
 
             domain = wizard._get_counterpart_domain(wizard.payment_line_id)
             if wizard.source_line_ids:
                 domain.append(('id', 'in', wizard.source_line_ids.ids))
-            wizard.available_counterpart_line_ids = self.env['account.move.line'].search(domain, order='date, id')
+            wizard.available_counterpart_line_ids = aml_model.search(domain, order='date, id')
 
     @api.onchange('payment_line_id')
     def _onchange_payment_line_id(self):
@@ -132,7 +131,7 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         return (
             line.parent_state == 'posted'
             and not line.reconciled
-            and line.display_type not in ('line_section', 'line_note')
+            and line.display_type not in ('line_section', 'line_subsection', 'line_note')
             and line.account_id.reconcile
             and not line.company_currency_id.is_zero(line.amount_residual)
         )
@@ -142,7 +141,7 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         domain = [
             ('company_id', '=', payment_line.company_id.id),
             ('parent_state', '=', 'posted'),
-            ('display_type', 'not in', ('line_section', 'line_note')),
+            ('display_type', 'not in', ('line_section', 'line_subsection', 'line_note')),
             ('reconciled', '=', False),
             ('account_id', '=', payment_line.account_id.id),
             ('id', '!=', payment_line.id),
@@ -175,30 +174,9 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         debit_amount_currency = self._compute_currency_amount_for_line(debit_line, amount_company)
         credit_amount_currency = self._compute_currency_amount_for_line(credit_line, amount_company)
         aml_model = self.env['account.move.line']
-        partials = self.env['account.partial.reconcile']
+        partial_model = self.env['account.partial.reconcile']
 
-        # Compatibility across Odoo 17 variants/forks.
-        if hasattr(aml_model, '_prepare_reconciliation_partials'):
-            partials_vals_list, exchange_data = aml_model._prepare_reconciliation_partials([
-                {
-                    'aml': debit_line,
-                    'amount_residual': amount_company,
-                    'amount_residual_currency': debit_amount_currency,
-                },
-                {
-                    'aml': credit_line,
-                    'amount_residual': -amount_company,
-                    'amount_residual_currency': -credit_amount_currency,
-                },
-            ])
-            if not partials_vals_list:
-                raise UserError(_('Aucun rapprochement partiel n’a pu être généré pour cette sélection.'))
-            partials = partials.create(partials_vals_list)
-            if hasattr(aml_model, '_create_exchange_difference_move'):
-                for index, exchange_values in exchange_data.items():
-                    partials[index].exchange_move_id = aml_model._create_exchange_difference_move(exchange_values)
-
-        elif hasattr(aml_model, '_prepare_reconciliation_single_partial'):
+        if hasattr(aml_model, '_prepare_reconciliation_single_partial'):
             result = aml_model._prepare_reconciliation_single_partial(
                 {
                     'aml': debit_line,
@@ -213,18 +191,36 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
             )
             partial_vals = result.get('partial_values')
             if not partial_vals:
-                raise UserError(_('Aucun rapprochement partiel n’a pu être généré pour cette sélection.'))
-            partials = partials.create([partial_vals])
+                raise UserError(_('A partial reconciliation could not be generated for this selection.'))
+            partials = partial_model.create([partial_vals])
             exchange_values = result.get('exchange_values')
-            if (
-                exchange_values
-                and exchange_values.get('move_values', {}).get('line_ids')
-                and hasattr(aml_model, '_create_exchange_difference_move')
-            ):
-                partials.exchange_move_id = aml_model._create_exchange_difference_move(exchange_values)
-
+            if exchange_values:
+                if hasattr(aml_model, '_create_exchange_difference_moves'):
+                    exchange_moves = aml_model._create_exchange_difference_moves([exchange_values])
+                    partials.exchange_move_id = exchange_moves[:1].id
+                elif hasattr(aml_model, '_create_exchange_difference_move'):
+                    partials.exchange_move_id = aml_model._create_exchange_difference_move(exchange_values)
+        elif hasattr(aml_model, '_prepare_reconciliation_partials'):
+            partials_vals_list, exchange_data = aml_model._prepare_reconciliation_partials([
+                {
+                    'aml': debit_line,
+                    'amount_residual': amount_company,
+                    'amount_residual_currency': debit_amount_currency,
+                },
+                {
+                    'aml': credit_line,
+                    'amount_residual': -amount_company,
+                    'amount_residual_currency': -credit_amount_currency,
+                },
+            ])
+            if not partials_vals_list:
+                raise UserError(_('A partial reconciliation could not be generated for this selection.'))
+            partials = partial_model.create(partials_vals_list)
+            if hasattr(aml_model, '_create_exchange_difference_move'):
+                for index, exchange_values in exchange_data.items():
+                    partials[index].exchange_move_id = aml_model._create_exchange_difference_move(exchange_values)
         else:
-            partials = partials.create([{
+            partials = partial_model.create([{
                 'debit_move_id': debit_line.id,
                 'credit_move_id': credit_line.id,
                 'amount': amount_company,
@@ -254,7 +250,6 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
 
             grouped_amls = aml._filter_reconciled_by_number(mapping)
             done_matching_numbers.add(aml.matching_number)
-
             if not grouped_amls or not all(grouped_amls.mapped('reconciled')) or grouped_amls.full_reconcile_id:
                 continue
 
@@ -269,18 +264,20 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         self.ensure_one()
 
         if not self.payment_line_id:
-            raise UserError(_('Veuillez d’abord choisir une pièce de paiement.'))
+            raise UserError(_('Please select a payment line first.'))
 
-        allocation_lines = self.allocation_line_ids.filtered(lambda line: line.counterpart_line_id and line.amount > 0)
+        allocation_lines = self.allocation_line_ids.filtered(
+            lambda line: line.counterpart_line_id and line.amount > 0
+        )
         if not allocation_lines:
-            raise ValidationError(_('Veuillez ajouter au moins une ligne d’allocation avec un montant positif.'))
+            raise ValidationError(_('Add at least one allocation line with a positive amount.'))
 
         payment_line = self.payment_line_id._origin
         total_to_allocate = sum(allocation_lines.mapped('amount'))
         payment_open_amount = abs(payment_line.amount_residual)
         if self.company_currency_id.compare_amounts(total_to_allocate, payment_open_amount) > 0:
             raise ValidationError(
-                _('Le montant total alloué (%(allocated)s) dépasse le résiduel du paiement (%(residual)s).',
+                _('The allocated amount %(allocated)s exceeds the payment residual %(residual)s.',
                   allocated=total_to_allocate, residual=payment_open_amount)
             )
 
@@ -288,12 +285,12 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
         for allocation in allocation_lines:
             counterpart_line = allocation.counterpart_line_id._origin
             if payment_line.company_id != counterpart_line.company_id:
-                raise ValidationError(_('Toutes les pièces allouées doivent appartenir à la même société que le paiement.'))
+                raise ValidationError(_('All allocated lines must belong to the same company as the payment line.'))
             if payment_line.account_id != counterpart_line.account_id:
-                raise ValidationError(_('Toutes les pièces allouées doivent utiliser le même compte que le paiement.'))
+                raise ValidationError(_('All allocated lines must use the same account as the payment line.'))
             if payment_line.balance * counterpart_line.balance >= 0:
                 raise ValidationError(
-                    _('La pièce comptable %(line)s doit avoir le signe opposé à celui du paiement.',
+                    _('The journal item %(line)s must have the opposite sign of the payment line.',
                       line=counterpart_line.display_name)
                 )
 
@@ -302,7 +299,7 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
             max_current_amount = min(current_payment_residual, current_counterpart_residual)
             if self.company_currency_id.compare_amounts(allocation.amount, max_current_amount) > 0:
                 raise ValidationError(
-                    _('Le montant alloué %(amount)s est supérieur au montant rapprochable actuel %(max)s pour la ligne %(line)s.',
+                    _('The allocated amount %(amount)s exceeds the currently reconcilable amount %(max)s for line %(line)s.',
                       amount=allocation.amount, max=max_current_amount, line=counterpart_line.display_name)
                 )
 
@@ -317,9 +314,9 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
 
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Pièces comptables à rapprocher'),
+            'name': _('Journal Items to Reconcile'),
             'res_model': 'account.move.line',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('id', 'in', involved_amls.ids)],
             'context': {
                 'search_default_group_by_account': True,
@@ -330,9 +327,13 @@ class AccountAutoPartialReconcileWizard(models.TransientModel):
 
 class AccountAutoPartialReconcileWizardLine(models.TransientModel):
     _name = 'account.auto.partial.reconcile.wizard.line'
-    _description = 'Ligne d’assistant de rapprochement partiel'
+    _description = 'Ligne d assistant de rapprochement partiel'
     _sql_constraints = [
-        ('wizard_line_unique_counterpart', 'unique(wizard_id, counterpart_line_id)', 'Chaque pièce comptable ne peut être allouée qu’une seule fois.'),
+        (
+            'wizard_line_unique_counterpart',
+            'unique(wizard_id, counterpart_line_id)',
+            'Each journal item can only be allocated once.',
+        ),
     ]
 
     wizard_id = fields.Many2one(
@@ -342,7 +343,7 @@ class AccountAutoPartialReconcileWizardLine(models.TransientModel):
     )
     counterpart_line_id = fields.Many2one(
         comodel_name='account.move.line',
-        string='Pièce comptable',
+        string='Piece comptable',
         required=True,
     )
     amount = fields.Monetary(
@@ -375,10 +376,10 @@ class AccountAutoPartialReconcileWizardLine(models.TransientModel):
     def _check_amount(self):
         for line in self:
             if line.amount <= 0:
-                raise ValidationError(_('Le montant alloué doit être strictement positif.'))
+                raise ValidationError(_('The allocated amount must be strictly positive.'))
             if line.company_currency_id.compare_amounts(line.amount, line.max_amount) > 0:
                 raise ValidationError(
-                    _('Le montant alloué %(amount)s ne peut pas dépasser le montant ouvert %(max)s.',
+                    _('The allocated amount %(amount)s cannot exceed the open amount %(max)s.',
                       amount=line.amount, max=line.max_amount)
                 )
 
@@ -388,7 +389,7 @@ class AccountAutoPartialReconcileWizardLine(models.TransientModel):
             if not line.counterpart_line_id or not line.wizard_id:
                 continue
             duplicates = line.wizard_id.allocation_line_ids.filtered(
-                lambda l: l.id != line.id and l.counterpart_line_id == line.counterpart_line_id
+                lambda current: current.id != line.id and current.counterpart_line_id == line.counterpart_line_id
             )
             if duplicates:
-                raise ValidationError(_('Chaque pièce comptable ne peut être allouée qu’une seule fois.'))
+                raise ValidationError(_('Each journal item can only be allocated once.'))

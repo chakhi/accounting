@@ -23,28 +23,28 @@
                     </group>
                 </group>
 
-                <separator string="Lignes d’allocation"/>
+                <separator string="Lignes d allocation"/>
                 <field name="allocation_line_ids" nolabel="1">
-                    <tree editable="bottom">
+                    <list editable="bottom">
                         <field name="wizard_id" column_invisible="1"/>
                         <field name="counterpart_line_id"
                                domain="[('id', 'in', parent.available_counterpart_line_ids)]"
                                options="{'no_create': True, 'no_edit': True}"/>
                         <field name="max_amount" readonly="1"/>
                         <field name="amount"/>
-                    </tree>
+                    </list>
                 </field>
 
-                <separator string="Pièces comptables liées"/>
+                <separator string="Pieces comptables liees"/>
                 <field name="available_counterpart_line_ids" nolabel="1" readonly="1">
-                    <tree create="false" edit="false" delete="false">
+                    <list create="false" edit="false" delete="false">
                         <field name="date"/>
-                        <field name="move_name" string="Écriture comptable"/>
+                        <field name="move_name" string="Ecriture comptable"/>
                         <field name="name"/>
                         <field name="partner_id"/>
                         <field name="account_id"/>
-                        <field name="amount_residual" string="Résiduel"/>
-                    </tree>
+                        <field name="amount_residual" string="Residuel"/>
+                    </list>
                 </field>
 
                 <footer>
@@ -60,14 +60,6 @@
         <field name="res_model">account.auto.partial.reconcile.wizard</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_account_auto_partial_reconcile_wizard"/>
-        <field name="target">new</field>
-    </record>
-
-    <record id="account_accountant.action_open_auto_reconcile_wizard" model="ir.actions.act_window">
-        <field name="name">Rapprochement automatique</field>
-        <field name="res_model">account.auto.reconcile.wizard</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="account_accountant.view_account_auto_reconcile_wizard"/>
         <field name="target">new</field>
     </record>
 </odoo>
