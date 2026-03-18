@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Rapprochement Partiel Automatique',
-    'version': '19.0.1.0.0',
+    'version': '18.0.1.0.0',
     'summary': 'Etend le rapprochement auto avec allocation manuelle des montants',
     'category': 'Accounting',
     'author': 'Imad chaikhi',
